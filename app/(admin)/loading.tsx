@@ -1,0 +1,1 @@
+export default function Loading() { return <main className="auth-page"><div className="auth-card" role="status"><span className="eyebrow">SAGE NYC</span><h1>Opening your workspace…</h1><p>Verifying secure access.</p></div></main>; }

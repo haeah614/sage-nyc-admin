@@ -1,0 +1,6 @@
+export type Profile = { id: string; first_name: string | null; last_name: string | null; avatar_path: string | null; created_at: string; is_superadmin: boolean };
+export type Plan = { id: string; generation_id: string; user_id: string; title: string; description: string; why_it_fits: string; place_id: string; place_name: string; address: string | null; rating: number | null; review_count: number | null; price_level: number | null; place_url: string | null; place_types: string[]; latitude: number | null; longitude: number | null; created_at: string };
+export type Vote = { id: string; user_id: string; plan_id: string; value: number; created_at: string; plans: { title: string } | null };
+export type Generation = { id: string; user_id: string; provider: string; model: string; created_at: string };
+export type List<T> = { rows: T[]; total: number; page: number };
+export type Dashboard = { users: number; plans: number; generations: number; positive: number; negative: number; recent: Plan[]; trend: { date: string; positive: number; negative: number }[]; categories: { label: string; count: number }[]; places: { label: string; count: number }[]; popular: { id: string; title: string; positive: number; negative: number }[]; scannedPlans: number; scannedVotes: number; sampled: boolean; asOf: string };

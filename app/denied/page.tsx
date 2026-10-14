@@ -1,0 +1,2 @@
+import { ShieldX } from 'lucide-react';
+export default function Denied() { return <main className="auth-page"><section className="auth-card"><ShieldX size={40}/><span className="eyebrow">RESTRICTED WORKSPACE</span><h1>Access denied</h1><p>This Google account is not authorized to administer SAGE NYC. No admin data has been shared.</p><p>Ask the project owner to verify your Supabase user ID and review access.</p><form method="post" action="/auth/signout"><button>Sign out and switch accounts</button></form></section></main>; }
