@@ -4,6 +4,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { sessionClient } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/admin';
 import { AppError, errorResponse } from '@/lib/errors';
+import { trustedRequestOrigin } from '@/lib/trusted-origin';
 export async function POST(request: Request) {
   try {
     const origin = process.env.APP_ORIGIN;
@@ -11,13 +12,7 @@ export async function POST(request: Request) {
     // GIS posts to the origin that rendered the button. Redirect back to that
     // same origin so the session cookies set by sessionClient remain in scope
     // for commit-specific Vercel deployments as well as the canonical domain.
-    const requestUrl = new URL(request.url);
-    const allowedOrigins = new Set([new URL(origin).origin]);
-    for (const host of [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL]) {
-      if (host) allowedOrigins.add(new URL(host.startsWith('http') ? host : `https://${host}`).origin);
-    }
-    if (!allowedOrigins.has(requestUrl.origin)) throw new AppError(403, 'Request origin is not allowed.');
-    const requestOrigin = requestUrl.origin;
+    const requestOrigin = trustedRequestOrigin(request);
     if (Number(request.headers.get('content-length')||0) > 16000) throw new AppError(413,'Request too large.');
     const form = await request.formData();
     const posted = form.get('g_csrf_token'), cookie = (await cookies()).get('g_csrf_token')?.value;
