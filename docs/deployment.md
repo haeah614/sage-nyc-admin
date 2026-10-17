@@ -37,7 +37,7 @@ Set these variables in the new project's appropriate environments (do not print 
 
 Do not add Google Places or Gemini keys. Preview deployments need their own exact `APP_ORIGIN` and approved Google origins/login URIs to perform authenticated mutations. A stable preview domain is easier to authorize than each random deployment hostname. Visiting a commit-specific URL does not automatically configure Google sign-in for that hostname.
 
-The Google web client must include the new authorized JavaScript origin and its `/auth/callback` login URI, while preserving all existing app entries. Verify the configured Supabase Google provider accepts that client ID. No existing Supabase site URL needs to be replaced for the ID-token callback architecture. All such production configuration changes require approval.
+The Google web client must include the new authorized JavaScript origin and its `/auth/callback` login URI, while preserving all existing app entries. The callback returns to the approved origin that received the Google POST, so commit-specific Vercel deployments retain their session cookies; `APP_ORIGIN` remains the canonical origin for mutation and sign-out checks. Verify the configured Supabase Google provider accepts that client ID. No existing Supabase site URL needs to be replaced for the ID-token callback architecture. All such production configuration changes require approval.
 
 ## Deployment Protection — new project only
 
