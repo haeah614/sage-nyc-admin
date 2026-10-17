@@ -8,3 +8,24 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 .artifacts/
+
+# Local IDE settings
+.idea/
+*.iml
+
+# Local credentials and private key material
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+service-account*.json
+secrets/
+.credentials/
+.npmrc
+playwright/.auth/
+
+# Local logs and database exports
+*.log
+*.dump
+*.sql.gz

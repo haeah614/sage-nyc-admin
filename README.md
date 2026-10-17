@@ -2,7 +2,7 @@
 
 An independent Next.js 16.3.5 / TypeScript application for administering the existing SAGE NYC Supabase database. It does not modify or deploy the Week 5 application.
 
-**Status:** local implementation complete; production setup and verification pending approval. No shared SQL, bootstrap, production writes, remote repository creation, push, deployment, or Vercel setting changes have been performed. Writes default to disabled.
+**Status:** local implementation and automated checks complete; GitHub publication and deployment remain pending approval. The owner reports successful local Google login, denial of an unauthorized account, dashboard viewing, and temporary recommendation creation/editing. The safe-delete RPC is installed with verified execution permissions. Completion of the temporary deletion/cleanup and deployed acceptance checks has not been reported. Writes default to disabled.
 
 ## Run locally
 
@@ -18,7 +18,7 @@ Open http://localhost:3000/login. A separate ignored `.env.local` has been prepa
 
 Google Identity Services also requires the admin JavaScript origin and the `/auth/callback` login URI to be authorized on the appropriate Google OAuth web client. **Those production configuration changes require approval.** Existing SAGE URLs must remain intact.
 
-The current live schema does not yet have `profiles.is_superadmin`. Authenticated admin access therefore fails closed until the reviewed setup is manually completed. There is no demo login, fallback admin, public data API, or authorization bypass.
+The live schema has `profiles.is_superadmin BOOLEAN NOT NULL DEFAULT FALSE`. The owner confirmed that both their Columbia account and the TA account have TRUE and currently have superadmin access. Authenticated SELECT and UPDATE on this column, and anonymous UPDATE, are denied. Authorization therefore reads the flag through a separate server-only service-role lookup after verifying the Google user. Local login and dashboard reads have been verified by the owner; repeat authorization checks on any future deployment. There is no demo login, fallback admin, public data API, or authorization bypass.
 
 ## What is included
 
@@ -35,8 +35,8 @@ Profile dates are `profiles.created_at`, not a claim that Auth account timestamp
 ## Architecture and security
 
 - `app/(admin)/[[...section]]/page.tsx` gates every admin page with `pageAdmin()`. The proxy also verifies page access before rendering; the data layer does not trust proxy-only checks.
-- `lib/admin.ts` verifies the live Supabase user via `auth.getUser()`, requires a Google provider/identity, and queries that user's `profiles.is_superadmin` using their session and RLS. Missing profiles, false flags, errors, and missing configuration fail closed.
-- The service-role client is instantiated only **after** that verification. It lives in a `server-only` module and is not shared with browser components. No user metadata, email allowlist, or client-supplied role is accepted as authorization.
+- `lib/admin.ts` verifies the live Supabase user via `auth.getUser()`, requires a Google provider/identity, and calls `lib/superadmin.ts` to read only that verified user's `profiles.is_superadmin` using an isolated service-role client. Missing profiles, false flags, errors, and missing configuration fail closed.
+- The narrow authorization client is instantiated after identity verification; a separate general CRUD client is instantiated only **after** the flag passes. The authorization client is private to a `server-only` helper, does not inherit user cookies/session/Authorization headers, and returns only a boolean. Both the proxy and `requireAdmin()` use the same policy and helper. Neither privileged client is shared with browser components. No user metadata, email allowlist, or client-supplied role is accepted as authorization.
 - All admin data routes go through `lib/api.ts`; every request independently invokes the protected data entrypoint. The app uses route handlers rather than server actions. Every write also requires same-origin JSON and the server-only writes-enable flag.
 - `/login`, `/denied`, `/auth/callback`, and `/auth/signout` are authentication surfaces without admin records. Google callback checks the GIS double-submit CSRF token, then exchanges the ID token with Supabase. Redirect destinations are fixed. Sign-out requires same origin.
 - Admin cookies use a distinct `sage-admin-auth` name, are HttpOnly, SameSite=Lax, and Secure in production. Admin data is not cached. Supabase refresh cookies are persisted in the proxy.
@@ -55,8 +55,10 @@ npm run build
 git diff --check
 ```
 
+The browser regression tests require Chrome (the default is the macOS Google Chrome application); set `CHROME_PATH` to a compatible executable on other systems. They exercise the actual editor against intercepted synthetic responses.
+
 Tests use mocks and a disposable in-memory PostgreSQL engine (PGlite). All database fixtures are synthetic. They do not read `.env.local`, connect to production, or create test records in Supabase. PGlite is a development-only dependency. Database migration tests are not a substitute for reviewing the live schema/grants or multi-connection concurrency testing.
 
 ## Next approval boundary
 
-Review `supabase/00-inspect-read-only.sql` and the proposed `01-admin-security.sql`. Then separately authorize any shared-database changes and manual bootstrap. Remote GitHub/Vercel creation, push, deployment, production configuration changes, and real record changes still require explicit approval. Do not deploy or enable writes until the acceptance checklist is completed.
+Review `supabase/00-inspect-read-only.sql` for remaining live security checks. The column and owner authorization already exist; do not repeat bootstrap. `01-admin-security.sql` is a historical proposal, not a prerequisite for this code-only authorization fix: it includes a SELECT grant that this lookup does not need. The owner has installed the safe-delete RPC and verified EXECUTE for `service_role`, with access denied to `authenticated`, `anon`, and `PUBLIC`. Do not reinstall the full historical proposal. Any further shared-database change requires separate review and approval. Remote GitHub/Vercel creation, push, deployment, production configuration changes, and real record changes still require explicit approval. Do not deploy or enable writes until the acceptance checklist is completed.

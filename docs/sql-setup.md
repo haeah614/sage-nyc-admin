@@ -1,50 +1,32 @@
-# Manual SQL setup — approval required
+# Database setup status — shared changes require approval
 
-None of these SQL files has been executed against Supabase. The automated suite executes them only against synthetic in-memory PostgreSQL fixtures.
+The owner confirmed that `public.profiles.is_superadmin BOOLEAN NOT NULL DEFAULT FALSE` exists. Both their Columbia account and the TA account are TRUE and have superadmin access. Authenticated SELECT/UPDATE and anonymous UPDATE on the column are denied.
 
-## 1. Inspect, then approve
+The admin application now uses a separate server-only service-role client for a one-column lookup after verifying the Google user. It does not require an authenticated SELECT grant, any profile UPDATE grant, a new column, or another bootstrap. No SQL was executed against Supabase during this code-only fix.
 
-Open the existing project's Supabase SQL Editor and run **only** `supabase/00-inspect-read-only.sql`. It reads column definitions, RLS flags/policies, table/column grants, foreign keys, custom triggers, and SECURITY DEFINER functions. Confirm these match `docs/database-review.md`, especially:
+The owner also confirmed installation of `public.admin_delete_unreferenced_plan(uuid,uuid)`, with EXECUTE allowed for `service_role` and denied for `authenticated`, `anon`, and `PUBLIC`. No RPC installation is currently pending. Database owners/superusers retain administrative powers.
 
-- Profiles still have owner-only SELECT/UPDATE policies and the expected editable columns.
-- Plans use the generation-owner composite FK; votes and saved places reference plans.
-- RLS is enabled as expected; there are no unexpected privileged profile-writing functions.
-- The default Supabase service role can perform server-side reads/writes on the existing tables.
+## Remaining read-only review
 
-Review the complete `supabase/01-admin-security.sql` proposal before granting explicit approval for its changes. It adds `is_superadmin boolean NOT NULL DEFAULT false` only if absent, grants authenticated sessions SELECT on that column under existing RLS, adds an INSERT/UPDATE protection trigger, and installs a safe-delete RPC executable only by `service_role`.
+Use `supabase/00-inspect-read-only.sql` to review live grants, RLS policies, foreign keys, triggers, and SECURITY DEFINER functions. Confirm:
 
-A column REVOKE does not negate a table-wide grant. The trigger is therefore essential: an ordinary user cannot insert a true flag or change a flag even if table privileges were accidentally broadened. Existing first/last name/avatar updates continue to work. RLS is never disabled or replaced.
+- The service role can read the flag and the required admin data.
+- Ordinary users cannot set the flag through INSERT, UPDATE, or privileged routines.
+- Existing owner profile editing remains limited to the intended fields.
+- The installed safe-delete RPC body and live dependencies match the reviewed implementation. Installation and application-role execution permissions have already been confirmed by the owner; concurrent deletion behavior still needs staging verification.
 
-After approval, manually run the entire `01-admin-security.sql` transaction in the SQL Editor as `postgres`. If any statement fails, roll back and investigate; do not enable writes or remove checks to make it pass.
+## Historical SQL proposals
 
-## 2. Identify your existing account, without guessing
+`supabase/01-admin-security.sql` includes column creation, an authenticated SELECT grant, a flag-protection trigger, and a safe-delete RPC. It is not a migration required by the new lookup. Do not run the whole proposal merely to fix login: the column already exists and its SELECT grant is unnecessary. Review any remaining trigger/RPC work separately and obtain explicit approval before shared changes.
 
-Sign in to the **existing** SAGE NYC app with your intended Google account. Verify your Supabase auth user UUID from that authenticated session's `auth.getUser()` result (existing profile page data also carries the current user ID), then compare it with the same user's record in Supabase **Authentication → Users**. Inspect its Google identity and verified status. Do not post a session token or credential in chat. Do not select a bootstrap target from an unverified email string.
+`supabase/02-bootstrap-one-user.sql` is retained as a historical proposal. Authorization for the Columbia and TA accounts is already complete; do not rerun bootstrap or change flags as part of this fix. Neither SQL file was modified by the code-only fix. Tests execute them only in disposable synthetic in-memory PostgreSQL fixtures.
 
-No UUID has been filled into the bootstrap file. The app does not infer it, and no admin assignment happens during sign-in.
+## Keep shared writes off pending approval
 
-## 3. Explicitly authorize and run the one-time bootstrap
+Keep admin writes disabled until live security and deletion dependencies have been reviewed and changes explicitly approved. The application still requires same-origin JSON and the writes-enable flag for recommendation mutations. Deletion has no direct DELETE fallback if the guarded RPC is missing.
 
-Only after verifying the UUID and separately approving admin access, open `supabase/02-bootstrap-one-user.sql`. Replace `REPLACE_WITH_VERIFIED_AUTH_USER_UUID` with that exact UUID. Review the complete statement and manually run it as the SQL Editor's `postgres` role.
-
-It requires an existing Auth user with confirmed email and a Google identity whose email is verified. It updates exactly one existing profile by UUID, and aborts if no such profile exists. It neither creates accounts nor authorizes every existing user. The literal placeholder intentionally fails until replaced.
-
-Verify with this read-only query, substituting the same UUID:
-
-```sql
-select id, is_superadmin
-from public.profiles
-where id = 'YOUR_VERIFIED_UUID'::uuid;
-```
-
-Sign in again to the admin app. A missing/false flag denies access. A missing column or failed authorization lookup produces an unavailable response, never a privileged fallback.
-
-## 4. Keep writes off until separately approved
-
-The initial app configuration is `ADMIN_WRITES_ENABLED=false`. Complete non-admin/Google access tests and inspect the live dependencies first. Production CRUD affects the same visible recommendations as the Week 5 app; it requires explicit permission even for an authorized administrator.
-
-Prefer a staging copy for mutation and concurrency acceptance tests. If testing against the shared database is explicitly approved, designate the exact synthetic user/generation/plan IDs in advance and record every created ID. Never reuse real community records as tests. Preserve generation history and never remove dependencies to make a deletion test pass. Cleanup of any created shared records is also a production-data action requiring approval.
+Prefer staging for approved CRUD and multi-connection deletion tests. Never remove real votes or bookmarks to unblock deletion. Any shared test-record creation, edits, or cleanup requires explicit approval.
 
 ## Revocation
 
-No role editing UI exists. The database owner can revoke access by setting the same verified profile's flag to false through a separately approved SQL action. Subsequent requests re-read the database flag. Do not drop the protection trigger while retaining an editable admin column. No rollback SQL is run automatically.
+No role-editing UI exists. The database owner can revoke access through a separately approved database action. Subsequent requests re-read the flag without caching authorization. Do not weaken column permissions or remove flag protections to resolve a login failure.

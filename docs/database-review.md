@@ -4,7 +4,7 @@
 
 The original repository is `/Users/haeah/IdeaProjects/hello-world`, at commit `1223b6d78560df1d47fb4e9dde24bc179d0e32aa`. Its tracked files and Git status were clean at the initial inspection. Source inspections covered migrations, Supabase clients/proxy, GIS login/callback, generation inserts, voting, saved places, profile updates/photos, coordinate persistence, community feed, and category mapping.
 
-A read-only authenticated Supabase REST OpenAPI inspection confirmed the live table/column shapes for `profiles`, `plans`, `generations`, `votes`, `saved_places`, and `movies`. No production row contents were exported. The live schema includes plan coordinates but no `is_superadmin` field. The repository lacks the coordinate migration; this discrepancy is recorded rather than inventing a migration.
+A read-only authenticated Supabase REST OpenAPI inspection confirmed the live table/column shapes for `profiles`, `plans`, `generations`, `votes`, `saved_places`, and `movies`. No production row contents were exported. The earlier inspection found plan coordinates but no `is_superadmin` field. The owner has since confirmed `profiles.is_superadmin BOOLEAN NOT NULL DEFAULT FALSE` exists, both their Columbia account and the TA account are TRUE and have superadmin access. Authenticated SELECT/UPDATE and anonymous UPDATE on the flag are denied. The repository lacks the coordinate migration; this discrepancy is recorded rather than inventing a migration.
 
 REST schema inspection does **not** prove live grants, policies, trigger bodies, or all foreign keys match the repository. `supabase/00-inspect-read-only.sql` supplies the catalog queries needed for manual verification. Production compatibility remains conditional on reviewing those results.
 
@@ -29,7 +29,7 @@ Existing Google login uses Google Identity Services redirect and Supabase `signI
 
 The migrations define `votes.plan_id` and `saved_places.plan_id` with **ON DELETE CASCADE**. A naive plan delete would destroy feedback and private bookmarks. Deleting a generation also cascades into its plans. Neither is acceptable as a silent admin action.
 
-This app never deletes generations or users. Its delete endpoint calls only `admin_delete_unreferenced_plan` and has no direct DELETE fallback. The proposed RPC:
+This app never deletes generations or users. Its delete endpoint calls only `admin_delete_unreferenced_plan` and has no direct DELETE fallback. The RPC implementation (installation and execution permissions confirmed by the owner):
 
 1. Rechecks the verified actor's admin flag and locks that profile for the transaction.
 2. Locks the target plan `FOR UPDATE`.
@@ -43,6 +43,6 @@ Soft deletion was not selected because the original app has no archive filter. A
 
 ## Proposed shared changes
 
-Only one authorization column, its owner-readable SELECT grant, a protected flag trigger, and a service-role-only safe-delete function are proposed. Existing RLS policies stay enabled and unchanged. The profile trigger blocks flag changes even if a future table-wide UPDATE grant accidentally weakens column privileges. It allows only database-administrator SQL roles to bootstrap/change flags; the runtime service role cannot edit them.
+The historical SQL proposal includes an authorization column, an owner-readable SELECT grant, a protected flag trigger, and a service-role-only safe-delete function. The column and authorization for both the Columbia and TA accounts now exist. The current code-only fix does not require the SELECT grant or bootstrap: it uses an isolated service-role boolean lookup for the verified Google user. No shared SQL is applied by this fix. The owner confirmed local authenticated dashboard reads and safe-delete RPC installation, with EXECUTE allowed for `service_role` and denied for `authenticated`, `anon`, and `PUBLIC`. Installation of the separate flag-protection trigger remains unverified. Existing RLS policies stay enabled and unchanged. If installed as proposed, the profile trigger blocks flag changes even if a future table-wide UPDATE grant accidentally weakens column privileges. It permits only database-administrator SQL roles to change flags and prevents the runtime service role from editing them; this protection is not asserted to exist live.
 
-Review any existing SECURITY DEFINER routines from the preflight query. A separately deployed arbitrary privileged function could bypass intended SQL-role boundaries; source review and local tests cannot rule out unseen production routines. No schema changes have been applied.
+Review any existing SECURITY DEFINER routines from the preflight query. A separately deployed arbitrary privileged function could bypass intended SQL-role boundaries; source review and local tests cannot rule out unseen production routines. No schema changes have been applied by this code-only fix.

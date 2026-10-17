@@ -22,7 +22,7 @@ The remote creation itself is a separate action. Never run these commands in `he
 
 ## Vercel after approval
 
-Create a new Vercel project named **sage-nyc-admin**, importing only the new repository. Use the Next.js framework preset, project root `.`, `npm ci` install command, and `npm run build`. Keep the existing Hello-World project and settings unchanged.
+Create a new Vercel project named **sage-nyc-admin**, importing only the new repository. Use the Next.js framework preset, project root `.`, `npm ci` install command, and `npm run build`. Keep the existing Hello-World project and settings unchanged. The superadmin column, Columbia and TA authorizations, and safe-delete RPC already exist; do not repeat bootstrap or grant authenticated flag access for deployment. The isolated server-side flag lookup requires service-role SELECT access.
 
 Set these variables in the new project's appropriate environments (do not print the values):
 
@@ -43,7 +43,7 @@ The Google web client must include the new authorized JavaScript origin and its 
 
 After approval, open the **new `sage-nyc-admin` project** in Vercel Settings → Deployment Protection. Disable its Vercel Authentication protection and any separately enabled password/trusted-IP restriction that would prevent public reachability. Verify the resulting setting in the dashboard rather than assuming a default. Do not change Hello-World protection settings.
 
-Public reachability must still yield `/login` for signed-out admin pages and 401 for admin APIs. Google-authenticated ordinary users must be denied, while the manually bootstrapped superadmin can access data. Vercel protection is an outer hosting gate; it is not a replacement for the application checks.
+Public reachability must still yield `/login` for signed-out admin pages and 401 for admin APIs. Google-authenticated ordinary users must be denied, while both the Columbia and TA superadmins can access data. Vercel protection is an outer hosting gate; it is not a replacement for the application checks.
 
 ## Verify before declaring the assignment complete
 

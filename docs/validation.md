@@ -1,6 +1,32 @@
 # Validation and remaining acceptance checks
 
-## Completed locally
+## Current owner-reported live status
+
+- Both the Columbia and TA accounts currently have superadmin access. Neither is a negative-test identity.
+- Authorized Google login, denial of an unauthorized Google account, and viewing Overview, Community, Recommendations, and Votes & Ratings have been confirmed locally.
+- Safe-delete RPC installation is confirmed. EXECUTE is allowed for `service_role` and denied for `authenticated`, `anon`, and `PUBLIC`.
+- Temporary recommendation creation and editing were reported during UI testing. Successful deletion/cleanup has not yet been reported; do not claim the complete live CRUD cycle is finished.
+- The checks below distinguish current automated coverage, historical checks, and remaining live/deployment acceptance. No shared database operations are part of repository preparation.
+
+## Recommendation editor UI regression fixes
+
+- `npm run typecheck`, `npm run lint`, `npm run build`, and `git diff --check` passed.
+- `npm test`: **106 tests passed across 10 files**, including seven isolated browser regressions.
+- Successful edits re-read persisted recommendation details before showing deletion controls. Failed saves retain the original persisted title; failed refreshes hide deletion and offer a read-only retry.
+- Generation loading/search distinguishes unknown permission from confirmed read-only status, preserves drafts, and keeps submission disabled until writes are explicitly allowed by the server response.
+- `tests/recommendation-editor.test.ts` bundles the actual components with esbuild and launches headless Chrome via Playwright. It uses synthetic responses and intercepts all page requests; it does not start Next.js or contact Supabase. Chrome defaults to the installed macOS application; set `CHROME_PATH` to a compatible executable elsewhere. Browser launch needs permission in restricted sandboxes.
+- These changes do not add realtime updates for edits made in another tab or session. The saved title is refreshed after this editor's successful updates. Server authorization and deletion dependency checks remain authoritative.
+
+## Code-only authorization lookup fix
+
+- `npm run typecheck`, `npm run lint`, and `npm run build` passed.
+- `npm test`: **99 tests passed across 9 files**.
+- `git diff --check` passed.
+- New coverage verifies identity-before-lookup ordering, strict boolean authorization, missing/error responses, role revocation, and separate authorization/CRUD clients. Proxy tests include forged browser IDs and user headers; a real Supabase client with mocked fetch verifies the one-column GET, service authorization, no cookies, and no-store caching.
+- The callback continues to call the updated `requireAdmin()`; no callback bypass was added. That code-only change did not test live Google callback/session behavior; subsequent owner-reported login results are listed above.
+- All network behavior in the new tests is mocked. Existing database tests use synthetic in-memory PGlite only; no shared database operations occurred. No Week 5 files, database permissions, records, or external settings were changed.
+
+## Previously recorded local checks (before the authorization lookup fix)
 
 - TypeScript: `npm run typecheck` passed.
 - ESLint: `npm run lint` passed without errors or warnings.
@@ -18,7 +44,7 @@
 | Area | What is verified |
 | --- | --- |
 | Authorization policy | Anonymous 401, non-admin 403, Google identity requirement, database-flag requirement, fail-closed lookup errors |
-| Privileged client | Never constructed before authorization; role changes rechecked on subsequent operations |
+| Privileged client | Narrow service client only after Google identity verification; separate CRUD client only after a true flag; role changes rechecked on subsequent operations |
 | API boundary | All data routes and CRUD methods deny unauthorized requests; read-only resources reject writes; no-store responses; sanitized errors |
 | CRUD | Existing generation owner controls creation; immutable location/ownership fields cannot be patched; exact deletion confirmation; no direct-delete fallback |
 | Validation | Required text/lengths, UUIDs, unknown fields, URLs, ratings/reviews/prices, coordinate pairs/ranges, bounded JSON bodies and filter input |
@@ -39,9 +65,9 @@ node scripts/visual-check.mjs
 
 The script defaults to the installed macOS Chrome executable. Set `CHROME_PATH` for another installation. It loads only `.artifacts/overview-fixture.html`, verifies no page-wide horizontal overflow at 1440px and 390px viewports, and writes ignored screenshots. There is no fixture mode in the production app.
 
-## Required after approval — not yet verified live
+## Remaining acceptance and deployment rechecks — approval required for writes
 
-1. Run/review the read-only catalog preflight. Apply the reviewed migration only after explicit approval. Verify the intended existing Google Auth UUID and manually run the separate one-user bootstrap only after approval.
+1. Review the read-only catalog preflight. The flag column, both authorized accounts, local admin reads, and safe-delete RPC execution permissions are confirmed by the owner; do not repeat bootstrap. Review protection against flag changes through INSERT/UPDATE or privileged functions and the live dependency/trigger definitions. Review any remaining shared changes separately; this code-only fix applies no SQL and needs no authenticated flag SELECT grant.
 2. Configure approved Google origins/callback and the new admin environment. Keep writes disabled. Verify real sign-in, refresh, expiration, sign-out, and the following matrix on both the intended canonical origin and configured deployment origin:
 
 | Identity | Admin pages | Admin reads | Admin mutations |

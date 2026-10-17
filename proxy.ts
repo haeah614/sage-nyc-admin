@@ -1,5 +1,8 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { authorize } from './lib/auth-policy';
+import { lookupSuperadmin } from './lib/superadmin';
+import { AppError } from './lib/errors';
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL, key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -27,11 +30,13 @@ export async function proxy(request: NextRequest) {
     return redirect;
   }
   if (adminPage) {
-    if (authError || !user) return denied('/login');
-    if (user.app_metadata.provider !== 'google' || !user.identities?.some(i => i.provider === 'google')) return denied('/denied');
-    const flag = await client.from('profiles').select('is_superadmin').eq('id',user.id).maybeSingle();
-    if (flag.error) return new NextResponse('Admin authorization is unavailable. Review database setup.',{status:503,headers:{'Cache-Control':'private, no-store'}});
-    if (flag.data?.is_superadmin !== true) return denied('/denied');
+    try {
+      await authorize(async () => authError ? null : user, lookupSuperadmin);
+    } catch (error) {
+      if (error instanceof AppError && error.status === 401) return denied('/login');
+      if (error instanceof AppError && error.status === 403) return denied('/denied');
+      return new NextResponse('Admin authorization is unavailable. Review database setup.',{status:503,headers:{'Cache-Control':'private, no-store'}});
+    }
   }
   response.headers.set('Cache-Control','private, no-store');
   return response;

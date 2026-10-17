@@ -4,18 +4,15 @@ import { redirect } from 'next/navigation';
 import { sessionClient } from './supabase';
 import { authorize } from './auth-policy';
 import { AppError } from './errors';
+import { lookupSuperadmin } from './superadmin';
 export async function requireAdmin() {
   const session = await sessionClient();
   return authorize(async () => {
     const { data, error } = await session.auth.getUser();
     return error ? null : data.user;
-  }, async (id) => {
-    const { data, error } = await session.from('profiles').select('is_superadmin').eq('id', id).maybeSingle();
-    if (error) throw new AppError(503, 'Admin authorization is unavailable. Check the reviewed database setup.');
-    return data?.is_superadmin === true;
-  });
+  }, lookupSuperadmin);
 }
-// The privileged client is constructed ONLY after an independent session + DB check.
+// General CRUD access is constructed ONLY after the session + narrow flag check.
 export async function adminDatabase() {
   const actor = await requireAdmin();
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
