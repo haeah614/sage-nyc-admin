@@ -1,6 +1,9 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { adminDatabase } from './admin';
+import { hasDomain } from './domain';
+import { handleDomain } from './domain-api';
+import { handleImages } from './image-api';
 import { assertMutation } from './auth-policy';
 import { AppError, errorResponse } from './errors';
 import { createSchema, deleteSchema, editSchema, idSchema, parse, queryOptions, readBody } from './validation';
@@ -37,6 +40,8 @@ export async function handleAdmin(request: Request, path: string[]) {
   try {
     const { db, actor } = await adminDatabase();
     const url = new URL(request.url), resource = path[0], id = path[1];
+    if (resource === 'images') return await handleImages(request,path,db,actor);
+    if (resource === 'mix' || hasDomain(resource)) return await handleDomain(request,path,db,actor);
     if (path.length > 2) throw new AppError(404,'Not found.');
     const json = (data: unknown, status = 200) => Response.json(data,{status,headers:{'Cache-Control':'private, no-store'}});
     if (request.method === 'GET') {

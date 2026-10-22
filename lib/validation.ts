@@ -19,14 +19,14 @@ export function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   if (!result.success) throw new AppError(400, result.error.issues.map(i => `${i.path.join('.') || 'Input'}: ${i.message}`).join(' '));
   return result.data;
 }
-export async function readBody(request: Request) {
+export async function readBody(request: Request, limit = 16000) {
   const reader = request.body?.getReader();
   if (!reader) throw new AppError(400, 'A JSON body is required.');
   let size = 0; const chunks: Uint8Array[] = [];
   while (true) {
     const { value, done } = await reader.read(); if (done) break;
     size += value.byteLength;
-    if (size > 16000) { await reader.cancel(); throw new AppError(413, 'Request is too large.'); }
+    if (size > limit) { await reader.cancel(); throw new AppError(413, 'Request is too large.'); }
     chunks.push(value);
   }
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); }
